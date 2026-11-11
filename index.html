@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<!-- Ocarina of Time 按法轉換器 | MIT License | 單一檔案,無外部相依 -->
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>時之笛 按法轉換器</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f3ea;--card:#fffdf6;--fg:#22301f;--mut:#6b7566;--bd:#d8d2bd;--ac:#2e7d4f;--a:#3b82f6;--c:#eab308;--bad:#c0392b;--on:#fde68a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141a14;--card:#1d261d;--fg:#e8ecdf;--mut:#9aa693;--bd:#344034;--ac:#5fc08a;--bad:#ff7b6b;--on:#4a4217}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,"Noto Sans TC",sans-serif}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 12px}
+section{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:14px}
+h2{font-size:15px;margin:0 0 8px;color:var(--ac)}
+label{margin-right:12px;white-space:nowrap}
+select,input,textarea,button{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:5px 9px}
+textarea{width:100%;min-height:80px;font-family:ui-monospace,monospace}
+button{cursor:pointer}button.p{background:var(--ac);color:#fff;border-color:var(--ac)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+.hint{color:var(--mut);font-size:13px}
+#out{display:flex;flex-wrap:wrap;gap:8px}
+.card{border:1px solid var(--bd);border-radius:10px;padding:6px 8px;min-width:76px;text-align:center;background:var(--bg)}
+.card.on{background:var(--on);outline:2px solid var(--ac)}
+.card.bad{border-color:var(--bad)}
+.nm{font-size:12px;color:var(--mut)}
+.chip{display:inline-block;margin:3px 0;padding:3px 10px;border-radius:999px;font-weight:700;color:#111}
+.chip.a{background:var(--a);color:#fff}.chip.c{background:var(--c)}
+.sub{font-size:11px;color:var(--mut)}.badt{color:var(--bad);font-size:12px}
+#kbwrap{overflow-x:auto;padding-bottom:4px}
+#kb{position:relative;height:150px;margin:0 auto}
+.w,.k{position:absolute;top:0;border:1px solid var(--bd);cursor:pointer;user-select:none;text-align:center}
+.w{background:#fff;color:#333;height:150px;width:40px;border-radius:0 0 6px 6px;font-size:11px;padding-top:112px}
+.k{background:#222;color:#fff;height:92px;width:26px;z-index:2;border-radius:0 0 5px 5px;font-size:9px}
+.w.oc{background:#e3f3e8}.k.oc{background:#2f6b45}.chip.m{background:#a78bfa;color:#111;margin-left:2px}.w:active,.k:active{filter:brightness(.8)}
+.dot{display:block;font-size:10px;color:var(--ac);font-weight:700}
+#pad{display:flex;gap:8px;flex-wrap:wrap}
+#pad button{min-width:92px;padding:8px}
+pre{white-space:pre-wrap;margin:6px 0 0;font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>🎵 時之笛 按法轉換器</h1>
+
+<section>
+<h2>1. 輸入樂譜</h2>
+<div class="row">
+<label>格式 <select id="mode"><option value="num">簡譜</option><option value="note">音名</option></select></label>
+<label id="keyl">調 1= <select id="key"></select></label>
+<label>範例 <select id="preset"><option value="">— 選擇歌曲 —</option></select></label>
+</div>
+<textarea id="src" spellcheck="false" placeholder="簡譜:1 2 3 4 5 6 7 1'   音名:C4 D4 F#4 Bb3"></textarea>
+<div class="hint" id="syn"></div>
+</section>
+
+<section>
+<h2>2. 設定</h2>
+<div class="row">
+<label>按法版本 <select id="ver"><option value="sw2d">Switch 2 重製版・預設配置</option><option value="sw2c">Switch 2 重製版・經典配置</option><option value="sw1">Switch 1 NSO</option><option value="n64">N64 原版</option><option value="custom">自訂</option></select></label>
+<label>音域 <select id="range"><option value="chrom">含升降音(B3–F5)</option><option value="basic">只用 5 個基本音</option></select></label>
+<label>移調(半音) <input id="shift" type="number" value="0" min="-24" max="24" style="width:70px"></label>
+<button id="auto" class="p">一鍵平移到可按範圍</button><label><input type="checkbox" id="octonly"> 只平移八度(保持原調)</label><span id="automsg" class="hint"></span>
+<label>速度 <input id="bpm" type="number" value="100" min="30" max="300" style="width:70px"> BPM</label>
+</div>
+<div class="row" id="cust" hidden>自訂按鍵名稱(D4/F4/A4/B4/D5):<input class="cl" value="A" size="4"><input class="cl" value="↓" size="4"><input class="cl" value="→" size="4"><input class="cl" value="←" size="4"><input class="cl" value="↑" size="4"> 升半音:<input class="cl" value="R" size="4"> 降半音:<input class="cl" value="ZL" size="4"> 搖桿上:<input class="cl" value="搖桿↑" size="6"> 搖桿下:<input class="cl" value="搖桿↓" size="6"></div>
+<div class="hint" id="verhint"></div>
+</section>
+
+<section>
+<h2>3. 按法輸出</h2>
+<div class="row"><button class="p" id="play">▶ 播放整段</button><button id="stop">■ 停止</button><span id="stat" class="hint"></span></div>
+<div id="out"></div>
+<pre id="txt"></pre>
+</section>
+
+<section>
+<h2>4. 鍵盤 / 時之笛按鈕</h2>
+<div class="row"><label><input type="checkbox" id="append" checked> 點擊時寫入輸入框</label><span class="hint">綠色標記 = 時之笛可直接按出的音</span></div>
+<div id="kbwrap"><div id="kb"></div></div>
+<h2 style="margin-top:12px">時之笛按鈕</h2>
+<div class="row"><label>搭配修飾 <select id="padmod"><option value="0">無</option><option value="1">R(升半音 +1)</option><option value="-1">Z(降半音 −1)</option><option value="2">搖桿上(+2)</option><option value="-2">搖桿下(−2)</option><option value="3">R + 搖桿上(+3)</option><option value="-3">Z + 搖桿下(−3)</option></select></label></div>
+<div id="pad"></div>
+</section>
+<div class="hint">基本音(N64 / Switch 1):A=D4、C↓=F4、C→=A4、C←=B4、C↑=D5。修飾:R 升半音、Z 降半音、搖桿上/下升/降一個全音(可疊加,最多 ±3 半音),因此可吹出 B3–F5 的所有半音。搖桿微調實際上是連續的,需自行抓準音高,所以程式會優先選用 R/Z。</div>
+</main>
+<script>
+/* ============ 設定區(常改的地方) ============
+ * OC   :時之笛 5 個基本音的 MIDI 編號 D4 F4 A4 B4 D5
+ * PRE  :範例歌曲(音名格式)
+ * COST :各偏移量的「難度」,數字越小越優先(見 fing())
+ */
+const OC=[62,65,69,71,74];
+/* ============ 按法計算:MIDI → 基本音 + 修飾(R/Z/搖桿) ============ */
+const COST={0:0,1:1,'-1':1,2:1.5,'-2':1.5,3:2.5,'-3':2.5};
+function fing(m){const ch=$('range').value==='chrom';let b=null;OC.forEach((x,i)=>{const o=m-x;if(Math.abs(o)>3||(!ch&&o!==0))return;const c=COST[o];if(!b||c<b.c)b={i,o,c}});return b}
+function approx(m){for(let d=1;d<40;d++){if(fing(m-d))return m-d;if(fing(m+d))return m+d}return 62}
+const MODS={'1':['R'],'2':['U'],'3':['R','U'],'-1':['Z'],'-2':['D'],'-3':['Z','D']};
+function modl(){const v=$('ver').value;if(v==='custom'){const c=[...document.querySelectorAll('.cl')].map(i=>i.value);return{R:c[5],Z:c[6],U:c[7],D:c[8]}}if(v==='sw2d')return{R:'↑',Z:'↓',U:'左搖桿↑',D:'左搖桿↓'};if(v==='sw2c')return{R:'L',Z:'ZL',U:'左搖桿↑',D:'左搖桿↓'};return v==='n64'?{R:'R',Z:'Z',U:'搖桿↑',D:'搖桿↓'}:{R:'R',Z:'ZL',U:'左搖桿↑',D:'左搖桿↓'}}
+function fchip(f){const L=modl();return chip(f.i)+(f.o?`<div>${MODS[f.o].map(k=>`<span class="chip m">${L[k]}</span>`).join('')}</div>`:'')}
+function fdesc(f){const L=modl();return [labels().main[f.i]].concat(f.o?MODS[f.o].map(k=>L[k]):[]).join('+')}
+const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const nm=m=>NAMES[((m%12)+12)%12]+(Math.floor(m/12)-1);
+const $=id=>document.getElementById(id);
+const KEYS=[['C',0],['C#/Db',1],['D',2],['Eb',3],['E',4],['F',5],['F#',6],['G',7],['Ab',8],['A',9],['Bb',10],['B',11]];
+KEYS.forEach(([n,v])=>$('key').add(new Option(n,v)));
+const DEG=[0,2,4,5,7,9,11],DN=['1','#1','2','#2','3','4','#4','5','#5','6','#6','7'];
+const BASE={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+const PRE={'薩爾達搖籃曲':'B4:2 D5 A4:3 B4:2 D5 A4:3','艾波娜之歌':'D5 B4 A4:2 D5 B4 A4:2 D5 B4 A4 B4 A4:2',
+'太陽之歌':'A4 F4 D5:2 A4 F4 D5:2','時之歌':'A4 D4 F4:2 A4 D4 F4:2','暴風雨之歌':'D4 F4 D5:2 D4 F4 D5:2',
+'森林的小步舞曲':'D4 D5 B4 A4 B4 A4','火焰的波麗露':'F4 D4 F4 D4 A4 F4 A4 F4','水之小夜曲':'D4 F4 A4 A4 B4',
+'精神的安魂曲':'D4 F4 D4 A4 F4 D4','暗影的夜想曲':'B4 A4 A4 D4 B4 A4 F4','光明的序曲':'D5 A4 D5 A4 B4 D5'};
+for(const k in PRE)$('preset').add(new Option(k,k));
+
+/* ============ 樂譜解析:簡譜 / 音名 → [{m: MIDI|null, b: 拍數}] ============ */
+function parse(){
+ const s=$('src').value,ev=[],err=[];
+ const push=(m,b)=>ev.push({m,b});
+ if($('mode').value==='num'){
+  const tk=+$('key').value,re=/([#b♯♭]?)([0-7])([',’]*)(?::(\d+(?:\.\d+)?))?|(-)/g;let x;
+  while((x=re.exec(s))){
+   if(x[5]){if(ev.length)ev[ev.length-1].b+=1;continue}
+   const d=+x[2],b=x[4]?+x[4]:1;
+   if(d===0){push(null,b);continue}
+   const acc=/[#♯]/.test(x[1])?1:/[b♭]/.test(x[1])?-1:0;
+   const o=(x[3].match(/['’]/g)||[]).length-(x[3].match(/,/g)||[]).length;
+   push(60+tk+DEG[d-1]+acc+12*o,b);
+  }
+ }else{
+  s.split(/[\s|]+/).filter(Boolean).forEach(t=>{
+   if(t==='-'){if(ev.length)ev[ev.length-1].b+=1;return}
+   let m=t.match(/^[0rR](?::(\d+(?:\.\d+)?))?$/);
+   if(m){push(null,m[1]?+m[1]:1);return}
+   m=t.match(/^([A-Ga-g])([#b♯♭]?)(-?\d)?(?::(\d+(?:\.\d+)?))?$/);
+   if(!m){err.push(t);return}
+   const acc=/[#♯]/.test(m[2])?1:/[b♭]/.test(m[2])?-1:0,o=m[3]!==undefined?+m[3]:4;
+   push((o+1)*12+BASE[m[1].toUpperCase()]+acc,m[4]?+m[4]:1);
+  });
+ }
+ return{ev,err};
+}
+/* ============ 按鍵名稱:各版本配置(新增版本改這裡 + <select id="ver">) ============ */
+function labels(){
+ const v=$('ver').value,main=['A','C↓','C→','C←','C↑'];
+ let sub=['','','','',''];
+ if(v==='sw1')sub=['A 鍵','右搖桿 ↓','右搖桿 →','右搖桿 ←','右搖桿 ↑'];
+ if(v==='sw2d')return{main:['L','R','A','Y','X'],sub:['','','','','']};
+ if(v==='sw2c')return{main:['R','B','A','Y','X'],sub:['','','','','']};
+ if(v==='custom'){const c=[...document.querySelectorAll('.cl')].map(i=>i.value);return{main:c,sub}}
+ return{main,sub};
+}
+function chip(i){const L=labels();return `<span class="chip ${i===0&&!/^sw2/.test($('ver').value)?'a':'c'}">${L.main[i]}</span>${L.sub[i]?`<div class="sub">${L.sub[i]}</div>`:''}`}
+let cur=[];
+function render(){
+ const {ev,err}=parse(),sh=+$('shift').value||0;
+ $('syn').textContent=$('mode').value==='num'
+  ?"簡譜:數字 1–7,高八度加 ' ,低八度加 , ,升降 #1 b3,休止 0,延長 - 或 1:2(2 拍)"
+  :"音名:C4 F#4 Bb3(省略八度=4),休止 0 或 r,延長 - 或 D4:2(2 拍)。"+(err.length?" ⚠ 無法辨識:"+err.join(' '):'');
+ $('cust').hidden=$('ver').value!=='custom';
+ $('verhint').textContent={sw2d:'Switch 2 重製版・預設配置:L/R/A/Y/X = D4/F4/A4/B4/D5,↑ 升半音、↓ 降半音,左搖桿上下 = 升降全音。',sw2c:'Switch 2 重製版・經典配置:R/B/A/Y/X = D4/F4/A4/B4/D5,L 升半音、ZL 降半音,左搖桿上下 = 升降全音。',sw1:'Switch NSO 的 N64:右搖桿 = C 鍵。',n64:'N64 原版:A 與 4 個 C 鍵。',custom:''}[$('ver').value];
+ cur=ev.map(e=>e.m===null?{rest:1,b:e.b}:{m:e.m+sh,b:e.b,f:fing(e.m+sh)});
+ const out=$('out');out.innerHTML='';let ok=0,tot=0,txt=[];
+ cur.forEach((e,n)=>{
+  const d=document.createElement('div');d.className='card';d.id='c'+n;
+  const bt=e.b!==1?` <span class="nm">×${e.b}</span>`:'';
+  if(e.rest){d.innerHTML=`<div class="nm">休止${bt}</div><div>—</div>`;txt.push('(休)')}
+  else{tot++;
+   if(e.f){ok++;d.innerHTML=`<div class="nm">${nm(e.m)}${bt}</div>${fchip(e.f)}`;txt.push(fdesc(e.f))}
+   else{const am=approx(e.m);d.classList.add('bad');d.innerHTML=`<div class="nm">${nm(e.m)}${bt}</div><div class="badt">✗ 無法按</div><div class="sub">近似 ${nm(am)}</div>${fchip(fing(am))}`;txt.push('✗'+nm(e.m))}}
+  out.appendChild(d);
+ });
+ $('stat').textContent=tot?`可按 ${ok}/${tot} 個音`:'';
+ $('txt').textContent=txt.join(' → ');
+ document.querySelectorAll('.w,.k').forEach(k=>k.classList.toggle('oc',!!fing(+k.dataset.m)))
+}
+$('auto').onclick=()=>{
+ const ns=parse().ev.filter(e=>e.m!==null);if(!ns.length)return;
+ const oct=$('octonly').checked;let best=null;
+ for(let s=-24;s<=24;s++){
+  if(oct&&s%12!==0)continue;
+  let c=0,cost=0;ns.forEach(e=>{const f=fing(e.m+s);if(f){c++;cost+=f.c}});
+  const k=[-c,cost,Math.abs(s)];
+  if(!best||k[0]<best.k[0]||(k[0]===best.k[0]&&(k[1]<best.k[1]||(k[1]===best.k[1]&&k[2]<best.k[2]))))best={s,k,c};
+ }
+ $('shift').value=best.s;render();
+ const lo=Math.min(...ns.map(e=>e.m)),hi=Math.max(...ns.map(e=>e.m));
+ $('automsg').textContent=`已平移 ${best.s>0?'+':''}${best.s} 半音(${nm(lo)}–${nm(hi)} → ${nm(lo+best.s)}–${nm(hi+best.s)}),可按 ${best.c}/${ns.length}`+(best.c<ns.length?`;樂譜音域共 ${hi-lo} 半音,超過可按範圍,仍有 ${ns.length-best.c} 個音需改編`:'');
+};
+['mode','key','shift','ver','range'].forEach(id=>$(id).addEventListener('input',render));
+$('src').addEventListener('input',render);
+document.querySelectorAll('.cl').forEach(i=>i.addEventListener('input',()=>{render();buildPad()}));
+$('ver').addEventListener('input',buildPad);
+$('preset').onchange=e=>{const v=PRE[e.target.value];if(!v)return;$('mode').value='note';$('shift').value=0;$('src').value=v;render()};
+
+/* ============ 音效(Web Audio) ============ */
+let ctx=null;
+function ac(){if(!ctx)ctx=new (window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();return ctx}
+function tone(m,t,dur){
+ const c=ac(),f=440*Math.pow(2,(m-69)/12),o=c.createOscillator(),o2=c.createOscillator(),g=c.createGain(),lf=c.createOscillator(),lg=c.createGain(),g2=c.createGain();
+ o.type='sine';o2.type='triangle';o.frequency.value=f;o2.frequency.value=f;g2.gain.value=.15;
+ lf.frequency.value=5;lg.gain.value=f*.004;lf.connect(lg);lg.connect(o.frequency);lg.connect(o2.frequency);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.35,t+.04);g.gain.setValueAtTime(.3,t+Math.max(.05,dur-.08));g.gain.linearRampToValueAtTime(0,t+dur);
+ o.connect(g);o2.connect(g2);g2.connect(g);g.connect(c.destination);
+ [o,o2,lf].forEach(x=>{x.start(t);x.stop(t+dur+.05)});
+}
+let timers=[];
+function stop(){timers.forEach(clearTimeout);timers=[];document.querySelectorAll('.card.on').forEach(x=>x.classList.remove('on'))}
+$('stop').onclick=stop;
+$('play').onclick=()=>{
+ stop();const c=ac(),spb=60/(+$('bpm').value||100);let t=c.currentTime+.1;
+ cur.forEach((e,n)=>{
+  const d=e.b*spb;
+  if(!e.rest)tone(e.f?e.m:approx(e.m),t,d*.95);
+  timers.push(setTimeout(()=>{document.querySelectorAll('.card.on').forEach(x=>x.classList.remove('on'));const el=$('c'+n);if(el){el.classList.add('on');el.scrollIntoView({block:'nearest'})}},(t-c.currentTime)*1000));
+  t+=d;
+ });
+ timers.push(setTimeout(stop,(t-c.currentTime)*1000+50));
+};
+
+/* ============ 琴鍵 / 笛鍵 ============ */
+function toSrc(m){
+ if($('mode').value==='note')return nm(m);
+ const k=+$('key').value,r=m-(60+k),o=Math.floor(r/12),d=DN[((r%12)+12)%12];
+ const mark=o>0?"'".repeat(o):o<0?','.repeat(-o):'';
+ return d.replace(/(\d)/,'$1')+mark;
+}
+function press(m){
+ tone(m+0,ac().currentTime+.01,.5);
+ if($('append').checked){const s=$('src'),real=m-(+$('shift').value||0);s.value=(s.value.trim()+' '+toSrc(real)).trim();render()}
+}
+(function(){
+ const kb=$('kb');let x=0;const W=40;
+ for(let m=60;m<=84;m++){
+  const n=m%12,blk=[1,3,6,8,10].includes(n);
+  const d=document.createElement('div');d.dataset.m=m;
+  if(!blk){d.className='w';d.style.left=x+'px';d.innerHTML=(n===0||OC.includes(m)?nm(m):'')+'';x+=W}
+  else{d.className='k';d.style.left=(x-13)+'px'}
+  d.onmousedown=e=>{e.preventDefault();press(m)};
+  d.ontouchstart=e=>{e.preventDefault();press(m)};
+  kb.appendChild(d);
+ }
+ kb.style.width=x+'px';
+})();
+function buildPad(){
+ const p=$('pad');p.innerHTML='';
+ OC.forEach((m,i)=>{const b=document.createElement('button');b.innerHTML=`${chip(i)}<div class="nm">${nm(m)}</div>`;b.onclick=()=>press(m+(+$('padmod').value));p.appendChild(b)});
+}
+buildPad();$('src').value='B4:2 D5 A4:3 B4:2 D5 A4:3';$('mode').value='note';render();
+</script>
+</body>
+</html>
